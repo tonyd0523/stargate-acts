@@ -1,0 +1,939 @@
+<div class="shell">
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="logo">
+        <div class="logo-emblem">
+          <div class="logo-dot"></div>
+        </div>
+        <div class="logo-text-group">
+          <span class="logo-text">ACTS</span>
+          <span class="logo-sub">Astronaut Career Tracking System</span>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="hud-clock">
+          <span class="clock-date">{{ clockDate }}</span>
+          <span class="clock-time">{{ clockTime }}</span>
+        </div>
+        <div class="mission-status">
+          <div class="status-dot"></div>
+          <span>Online</span>
+        </div>
+        <button type="button" class="mode-toggle" [class.mode-toggle--edit]="editMode()" (click)="toggleEditMode()">
+          @if (editMode()) {
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            Edit Mode
+          } @else {
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            View Mode
+          }
+        </button>
+        <div class="stargate-badge">Stargate</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Stats Bar -->
+  @if (statsState() === 'success' && stats()) {
+    <div class="stats-bar">
+      <div class="stat-chip">
+        <span class="stat-chip-value">{{ stats()!.totalPeople }}</span>
+        <span class="stat-chip-label">People</span>
+      </div>
+      <div class="stat-chip stat-chip--active">
+        <span class="stat-chip-value">{{ stats()!.activeAstronauts }}</span>
+        <span class="stat-chip-label">Active</span>
+      </div>
+      <div class="stat-chip stat-chip--retired">
+        <span class="stat-chip-value">{{ stats()!.retiredAstronauts }}</span>
+        <span class="stat-chip-label">Retired</span>
+      </div>
+      <div class="stat-chip stat-chip--duties">
+        <span class="stat-chip-value">{{ stats()!.totalDuties }}</span>
+        <span class="stat-chip-label">Duty Records</span>
+      </div>
+    </div>
+  }
+
+  <!-- Tab Nav -->
+  <nav class="tab-nav">
+    <div class="tab-nav-inner">
+      <button type="button" class="tab-btn" [class.tab-btn--active]="activeTab() === 'search'" (click)="setTab('search')">
+        <span class="tab-icon">&#128269;</span> Search Duties
+      </button>
+      <button type="button" class="tab-btn" [class.tab-btn--active]="activeTab() === 'all-duties'" (click)="setTab('all-duties')">
+        <span class="tab-icon">&#128640;</span> All Duties
+      </button>
+      <button type="button" class="tab-btn" [class.tab-btn--active]="activeTab() === 'people'" (click)="setTab('people')">
+        <span class="tab-icon">&#128101;</span> People
+      </button>
+      @if (editMode()) {
+        <button type="button" class="tab-btn" [class.tab-btn--active]="activeTab() === 'add-person'" (click)="setTab('add-person')">
+          <span class="tab-icon">&#43;</span> Add Person
+        </button>
+        <button type="button" class="tab-btn" [class.tab-btn--active]="activeTab() === 'add-duty'" (click)="setTab('add-duty')">
+          <span class="tab-icon">&#43;</span> Add Duty
+        </button>
+        <button type="button" class="tab-btn" [class.tab-btn--active]="activeTab() === 'logs'" (click)="setTab('logs')">
+          <span class="tab-icon">&#9776;</span> Audit Logs
+        </button>
+      }
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- ══ TAB: Search Duties ══ -->
+    @if (activeTab() === 'search') {
+      <section class="search-panel">
+        <h1 class="page-heading">Retrieve Astronaut Duty by Name</h1>
+        <p class="page-sub">Returns a person's current detail and full duty history.</p>
+
+        <div class="search-bar">
+          <div class="search-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+          </div>
+          <input class="search-input" type="text" placeholder="Enter astronaut name&hellip;"
+            [value]="searchName()"
+            (input)="searchName.set($any($event.target).value)"
+            (keydown)="onKeyDown($event, onSearch.bind(this))"
+            [disabled]="isSearchLoading()"
+            autocomplete="off" spellcheck="false" />
+          <button type="button" class="search-btn" (click)="onSearch()" [disabled]="isSearchLoading() || !searchName().trim()">
+            @if (isSearchLoading()) { <span class="btn-spinner"></span> } @else { Search }
+          </button>
+          @if (searchState() !== 'idle') {
+            <button type="button" class="clear-btn" (click)="onSearchClear()" title="Clear">&#x2715;</button>
+          }
+        </div>
+      </section>
+
+      @if (searchState() === 'loading') {
+        <div class="status-panel">
+          <div class="rocket-loader">
+            <div class="rocket-scene">
+              <div class="rocket-stars">
+                <span></span><span></span><span></span><span></span><span></span>
+                <span></span><span></span><span></span><span></span><span></span>
+                <span></span><span></span>
+              </div>
+              <div class="rocket-ship">
+                <svg viewBox="0 0 40 80" width="40" height="80">
+                  <!-- Nose cone -->
+                  <path d="M20 0 C20 0 10 20 10 35 L30 35 C30 20 20 0 20 0Z" fill="url(#rocketBody)" />
+                  <!-- Body -->
+                  <rect x="10" y="35" width="20" height="30" rx="2" fill="url(#rocketBody)" />
+                  <!-- Window -->
+                  <circle cx="20" cy="30" r="5" fill="#0a1628" stroke="#00d4ff" stroke-width="1.5" />
+                  <circle cx="20" cy="30" r="2.5" fill="rgba(0,212,255,0.25)" />
+                  <!-- Fins -->
+                  <path d="M10 55 L2 72 L10 65Z" fill="#ff6b35" />
+                  <path d="M30 55 L38 72 L30 65Z" fill="#ff6b35" />
+                  <!-- Nozzle -->
+                  <path d="M13 65 L12 72 L28 72 L27 65Z" fill="#8a8a9a" />
+                  <defs>
+                    <linearGradient id="rocketBody" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stop-color="#c8ccd4" />
+                      <stop offset="50%" stop-color="#eef0f4" />
+                      <stop offset="100%" stop-color="#c8ccd4" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </div>
+              <div class="rocket-flame">
+                <span class="flame flame--core"></span>
+                <span class="flame flame--outer"></span>
+                <span class="flame flame--wisp"></span>
+              </div>
+              <div class="rocket-smoke">
+                <span></span><span></span><span></span><span></span><span></span>
+              </div>
+            </div>
+          </div>
+          <p class="status-text">Searching mission records for <strong>{{ searchedName() }}</strong>&hellip;</p>
+          <div class="progress-bar"><div class="progress-fill"></div></div>
+        </div>
+      }
+      @if (searchState() === 'not-found') {
+        <div class="status-panel">
+          <div class="status-icon status-icon--warn">?</div>
+          <p class="status-text">No record found for <strong>{{ searchedName() }}</strong>.</p>
+        </div>
+      }
+      @if (searchState() === 'error') {
+        <div class="alert alert--error">{{ searchError() }}</div>
+      }
+      @if (searchState() === 'success' && searchPerson()) {
+        <div class="results fade-in">
+          <div class="person-card" [class.person-card--retired]="isRetired()">
+            <div class="person-card-inner">
+              <div class="person-avatar" [class.person-avatar--clickable]="searchPerson()!.photoUrl"
+                (click)="searchPerson()!.photoUrl ? openLightbox(searchPerson()!) : null"
+                [title]="searchPerson()!.photoUrl ? 'Click to view photo' : ''">
+                @if (searchPerson()!.photoUrl) {
+                  <img [src]="'/' + searchPerson()!.photoUrl" alt="Astronaut photo" title="Astronaut photo" [attr.alt]="searchPerson()!.name" [attr.title]="searchPerson()!.name" class="avatar-img" />
+                  <div class="avatar-view-hint">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                      <path d="M11 8v6M8 11h6"/>
+                    </svg>
+                  </div>
+                } @else {
+                  {{ searchPerson()!.name.charAt(0) }}
+                }
+              </div>
+              <div class="person-info">
+                <h2 class="person-name">{{ searchPerson()!.name }}</h2>
+                <div class="badges">
+                  @if (searchPerson()!.currentRank) {
+                    <span class="badge badge--rank">{{ searchPerson()!.currentRank }}</span>
+                  }
+                  @if (searchPerson()!.currentDutyTitle) {
+                    <span class="badge" [class.badge--retired]="isRetired()" [class.badge--duty]="!isRetired()">
+                      {{ searchPerson()!.currentDutyTitle }}
+                    </span>
+                  }
+                </div>
+              </div>
+              <div class="person-stats">
+                @if (searchPerson()!.careerStartDate) {
+                  <div class="stat"><span class="stat-label">Start</span><span class="stat-value">{{ formatDate(searchPerson()!.careerStartDate) }}</span></div>
+                }
+                @if (searchPerson()!.careerEndDate) {
+                  <div class="stat"><span class="stat-label">End</span><span class="stat-value">{{ formatDate(searchPerson()!.careerEndDate) }}</span></div>
+                }
+                @if (careerDuration) {
+                  <div class="stat"><span class="stat-label">Duration</span><span class="stat-value accent">{{ careerDuration }}</span></div>
+                }
+              </div>
+            </div>
+          </div>
+
+          @if (searchDuties().length > 0) {
+            <div class="section-header">
+              <span class="section-label">Duty History</span>
+              <span class="count-badge">{{ searchDuties().length }}</span>
+            </div>
+            <div class="timeline">
+              @for (duty of searchDuties(); track duty.id) {
+                <div class="tl-item" [class.tl-item--current]="isCurrentDuty(duty)" [class.tl-item--retired]="duty.dutyTitle === 'RETIRED'">
+                  <div class="tl-line"></div>
+                  <div class="tl-dot" [class.tl-dot--current]="isCurrentDuty(duty)"></div>
+                  <div class="tl-card">
+                    @if (editingDutyId() === duty.id) {
+                      <!-- Edit duty inline form -->
+                      <div class="edit-duty-form">
+                        <div class="edit-duty-row">
+                          <div class="form-field">
+                            <label class="form-label" [for]="'edit-rank-' + duty.id">Rank</label>
+                            <input [id]="'edit-rank-' + duty.id" class="form-input form-input--sm"
+                              type="text" title="Rank" placeholder="e.g. Colonel" [value]="editDutyRank()"
+                              (input)="editDutyRank.set($any($event.target).value)" />
+                          </div>
+                          <div class="form-field">
+                            <label class="form-label" [for]="'edit-title-' + duty.id">Duty Title</label>
+                            <input [id]="'edit-title-' + duty.id" class="form-input form-input--sm"
+                              type="text" title="Duty Title" placeholder="e.g. Commander" [value]="editDutyTitle()"
+                              (input)="editDutyTitle.set($any($event.target).value)" />
+                          </div>
+                        </div>
+                        <div class="edit-duty-row">
+                          <div class="form-field">
+                            <label class="form-label" [for]="'edit-start-' + duty.id">Start Date</label>
+                            <input [id]="'edit-start-' + duty.id" class="form-input form-input--sm"
+                              type="date" title="Duty Start Date" [value]="editDutyStartDate()"
+                              (input)="editDutyStartDate.set($any($event.target).value)" />
+                          </div>
+                          <div class="form-field">
+                            <label class="form-label" [for]="'edit-end-' + duty.id">End Date</label>
+                            <input [id]="'edit-end-' + duty.id" class="form-input form-input--sm"
+                              type="date" title="Duty End Date" [value]="editDutyEndDate()"
+                              (input)="editDutyEndDate.set($any($event.target).value)" />
+                          </div>
+                        </div>
+                        @if (editDutyError()) { <div class="alert alert--error">{{ editDutyError() }}</div> }
+                        <div class="edit-duty-actions">
+                          <button type="button" class="form-btn form-btn--sm" (click)="submitEditDuty()" [disabled]="editDutyState() === 'loading'">
+                            @if (editDutyState() === 'loading') { <span class="btn-spinner"></span> } @else { Save }
+                          </button>
+                          <button type="button" class="ghost-btn ghost-btn--sm" (click)="cancelEditDuty()">Cancel</button>
+                        </div>
+                      </div>
+                    } @else {
+                      <div class="tl-top">
+                        <div class="tl-labels">
+                          <span class="tl-rank">{{ duty.rank }}</span>
+                          <span class="tl-title" [class.tl-title--retired]="duty.dutyTitle === 'RETIRED'">{{ duty.dutyTitle }}</span>
+                        </div>
+                        <div class="tl-actions">
+                          @if (isCurrentDuty(duty)) { <span class="active-badge">Active</span> }
+                          @if (editMode()) {
+                            <button type="button" class="link-btn link-btn--sm" (click)="startEditDuty(duty)" title="Edit this duty">Edit</button>
+                            <button type="button" class="link-btn link-btn--sm link-btn--danger" (click)="confirmDeleteDuty(duty.id)" title="Delete this duty">Delete</button>
+                          }
+                        </div>
+                      </div>
+                      <div class="tl-dates">
+                        {{ formatDate(duty.dutyStartDate) }} &rarr; {{ duty.dutyEndDate ? formatDate(duty.dutyEndDate) : 'Present' }}
+                      </div>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+            @if (editDutySuccess()) {
+              <div class="alert alert--success fade-in">&#10003; {{ editDutySuccess() }}</div>
+            }
+          } @else {
+            <p class="empty-note">No duty assignments recorded.</p>
+          }
+        </div>
+      }
+      @if (searchState() === 'idle') {
+        <div class="idle-hint">
+          <div class="idle-astronaut">
+            <div class="idle-stars">
+              <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+            </div>
+            <div class="idle-orbit">
+              <div class="idle-satellite">
+                <svg viewBox="0 0 44 22" width="36" height="18" fill="none" stroke="var(--hud-cyan)" stroke-width="1">
+                  <!-- Left solar panel -->
+                  <rect x="1" y="5" width="14" height="12" rx="0.5" fill="rgba(0,80,180,0.35)" stroke="var(--hud-cyan)" stroke-width="0.9"/>
+                  <line x1="5.7" y1="5" x2="5.7" y2="17" stroke="var(--hud-cyan)" stroke-width="0.4" opacity="0.7"/>
+                  <line x1="10.3" y1="5" x2="10.3" y2="17" stroke="var(--hud-cyan)" stroke-width="0.4" opacity="0.7"/>
+                  <line x1="1" y1="11" x2="15" y2="11" stroke="var(--hud-cyan)" stroke-width="0.4" opacity="0.7"/>
+                  <!-- Left arm -->
+                  <line x1="15" y1="11" x2="17" y2="11" stroke="var(--hud-cyan)" stroke-width="1.1"/>
+                  <!-- Central body -->
+                  <rect x="17" y="7" width="10" height="8" rx="1.5" fill="rgba(0,212,255,0.18)" stroke="var(--hud-cyan)" stroke-width="1.1"/>
+                  <line x1="22" y1="7" x2="22" y2="15" stroke="var(--hud-cyan)" stroke-width="0.5" opacity="0.5"/>
+                  <!-- Antenna dish -->
+                  <line x1="22" y1="7" x2="22" y2="4" stroke="var(--hud-cyan)" stroke-width="0.9"/>
+                  <path d="M19.5,4 Q22,1.5 24.5,4" fill="none" stroke="var(--hud-cyan)" stroke-width="0.9"/>
+                  <!-- Right arm -->
+                  <line x1="27" y1="11" x2="29" y2="11" stroke="var(--hud-cyan)" stroke-width="1.1"/>
+                  <!-- Right solar panel -->
+                  <rect x="29" y="5" width="14" height="12" rx="0.5" fill="rgba(0,80,180,0.35)" stroke="var(--hud-cyan)" stroke-width="0.9"/>
+                  <line x1="33.7" y1="5" x2="33.7" y2="17" stroke="var(--hud-cyan)" stroke-width="0.4" opacity="0.7"/>
+                  <line x1="38.3" y1="5" x2="38.3" y2="17" stroke="var(--hud-cyan)" stroke-width="0.4" opacity="0.7"/>
+                  <line x1="29" y1="11" x2="43" y2="11" stroke="var(--hud-cyan)" stroke-width="0.4" opacity="0.7"/>
+                  <!-- Center LED -->
+                  <circle cx="22" cy="11" r="1.4" fill="var(--hud-cyan)" stroke="none" opacity="0.9">
+                    <animate attributeName="opacity" values="0.9;0.3;0.9" dur="2.5s" repeatCount="indefinite"/>
+                  </circle>
+                </svg>
+              </div>
+            </div>
+            <svg class="idle-helmet" viewBox="0 0 120 135" width="100" height="112">
+              <defs>
+                <!-- Gold visor gradient -->
+                <linearGradient id="visorGold" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%"   stop-color="#f5d060" />
+                  <stop offset="40%"  stop-color="#c88a18" />
+                  <stop offset="100%" stop-color="#7a4e0c" />
+                </linearGradient>
+                <!-- Helmet body shading — light comes from upper-left -->
+                <radialGradient id="helmetShade" cx="35%" cy="22%" r="65%">
+                  <stop offset="0%"   stop-color="#ffffff" />
+                  <stop offset="50%"  stop-color="#e6e9ef" />
+                  <stop offset="100%" stop-color="#b2b6c0" />
+                </radialGradient>
+                <!-- Neck ring gradient -->
+                <linearGradient id="neckRing" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%"   stop-color="#d0d4dc" />
+                  <stop offset="100%" stop-color="#989ca6" />
+                </linearGradient>
+              </defs>
+
+              <!-- Neck ring / collar -->
+              <rect x="26" y="96" width="68" height="18" rx="5" fill="url(#neckRing)" stroke="#8a8e96" stroke-width="1.2" />
+              <rect x="29" y="99" width="62" height="3" rx="1" fill="#c8ccd4" />
+              <rect x="29" y="107" width="62" height="3" rx="1" fill="#9a9ea8" />
+
+              <!-- Helmet outer dome — taller, more spherical -->
+              <path d="M24,94 C24,94 16,82 16,52 C16,22 36,4 60,4 C84,4 104,22 104,52 C104,82 96,94 96,94 Z"
+                fill="url(#helmetShade)" stroke="#a0a4ac" stroke-width="1.5" />
+
+              <!-- Chin piece — small rounded chin below visor -->
+              <rect x="36" y="78" width="48" height="16" rx="6" fill="#d8dce4" stroke="#a0a4ac" stroke-width="1" />
+
+              <!-- Visor dark surround frame — kept to center of helmet face -->
+              <rect x="34" y="24" width="52" height="52" rx="10" fill="#0d1117" stroke="#6a6e78" stroke-width="1.2" />
+
+              <!-- Gold visor panel — inset from frame -->
+              <rect x="37" y="27" width="46" height="46" rx="8" fill="url(#visorGold)" opacity="0.9" />
+
+              <!-- Visor reflection -->
+              <path d="M41,31 C42,28 48,26 55,27 L49,54 L39,46 Z" fill="rgba(255,255,255,0.26)" />
+              <ellipse cx="50" cy="38" rx="9" ry="5" fill="rgba(255,255,255,0.12)" transform="rotate(-20 50 38)" />
+
+              <!-- Side comm vents (left) -->
+              <rect x="18" y="52" width="6" height="3" rx="1" fill="#8a8e96" />
+              <rect x="18" y="59" width="6" height="3" rx="1" fill="#8a8e96" />
+              <rect x="18" y="66" width="6" height="3" rx="1" fill="#8a8e96" />
+
+              <!-- Side comm vents (right) -->
+              <rect x="96" y="52" width="6" height="3" rx="1" fill="#8a8e96" />
+              <rect x="96" y="59" width="6" height="3" rx="1" fill="#8a8e96" />
+              <rect x="96" y="66" width="6" height="3" rx="1" fill="#8a8e96" />
+
+              <!-- Camera / headlamp on top -->
+              <rect x="53" y="2" width="14" height="7" rx="2.5" fill="#a0a4ac" stroke="#888c94" stroke-width="0.8" />
+              <circle cx="60" cy="5.5" r="2.2" fill="#1a1a2e" />
+              <circle cx="60" cy="5.5" r="1.1" fill="var(--hud-cyan)" opacity="0.7">
+                <animate attributeName="opacity" values="0.7;0.2;0.7" dur="3s" repeatCount="indefinite" />
+              </circle>
+
+              <!-- NASA-style flag patch (left side) -->
+              <rect x="19" y="38" width="10" height="7" rx="0.5" fill="#1a3a7a" opacity="0.75" />
+              <line x1="20" y1="39.5" x2="28" y2="39.5" stroke="#cc3333" stroke-width="0.8" opacity="0.7" />
+              <line x1="20" y1="41.5" x2="28" y2="41.5" stroke="#ffffff" stroke-width="0.7" opacity="0.55" />
+              <line x1="20" y1="43.5" x2="28" y2="43.5" stroke="#cc3333" stroke-width="0.8" opacity="0.7" />
+
+              <!-- Breathing indicator (green LED on collar) -->
+              <circle cx="82" cy="106" r="2.5" fill="var(--hud-green)" opacity="0.9">
+                <animate attributeName="opacity" values="0.9;0.3;0.9" dur="2s" repeatCount="indefinite" />
+              </circle>
+            </svg>
+          </div>
+          <p>Enter a name above to look up an astronaut's career history.</p>
+        </div>
+      }
+    }
+
+    <!-- ══ TAB: All Duties ══ -->
+    @if (activeTab() === 'all-duties') {
+      <div class="page-head-row">
+        <div>
+          <h1 class="page-heading">All Astronaut Duties</h1>
+          <p class="page-sub">Every duty record across all people — sortable and filterable.</p>
+        </div>
+        <button type="button" class="icon-btn" (click)="loadAllDuties()" title="Refresh" [disabled]="allDutiesState() === 'loading'">
+          &#8635; Refresh
+        </button>
+      </div>
+
+      <!-- Filter -->
+      <div class="filter-bar">
+        <div class="search-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          </svg>
+        </div>
+        <input class="filter-input" type="text" placeholder="Filter by name, title, or rank&hellip;"
+          [value]="allDutiesFilter()"
+          (input)="allDutiesFilter.set($any($event.target).value)"
+          autocomplete="off" />
+        @if (allDutiesFilter()) {
+          <button type="button" class="clear-btn" (click)="allDutiesFilter.set('')" title="Clear">&#x2715;</button>
+        }
+      </div>
+
+      @if (allDutiesState() === 'loading') {
+        <div class="loading-row"><div class="loader-dots"><span></span><span></span><span></span></div></div>
+      }
+      @if (allDutiesState() === 'error') {
+        <div class="alert alert--error">{{ allDutiesError() }}</div>
+      }
+      @if (allDutiesState() === 'success') {
+        @if (filteredAllDuties().length === 0) {
+          <p class="empty-note">{{ allDutiesFilter() ? 'No duties match that filter.' : 'No duty records found.' }}</p>
+        } @else {
+          <div class="duties-table-wrap">
+            <div class="duties-meta">{{ filteredAllDuties().length }} record{{ filteredAllDuties().length === 1 ? '' : 's' }}</div>
+            <div class="duties-table">
+              <div class="duties-header">
+                <button type="button" class="col-sort" (click)="sortAllDuties('personName')">
+                  Astronaut <span class="sort-icon">{{ sortIcon('personName') }}</span>
+                </button>
+                <span class="col-rank">Rank</span>
+                <button type="button" class="col-sort" (click)="sortAllDuties('dutyTitle')">
+                  Duty Title <span class="sort-icon">{{ sortIcon('dutyTitle') }}</span>
+                </button>
+                <button type="button" class="col-sort" (click)="sortAllDuties('dutyStartDate')">
+                  Start <span class="sort-icon">{{ sortIcon('dutyStartDate') }}</span>
+                </button>
+                <span class="col-end">End</span>
+                <span class="col-status">Status</span>
+                <span class="col-actions"></span>
+              </div>
+              @for (duty of filteredAllDuties(); track duty.id) {
+                @if (editingDutyId() === duty.id) {
+                  <div class="duties-edit-row">
+                    <div class="edit-duty-form edit-duty-form--table">
+                      <div class="edit-duty-row">
+                        <div class="form-field">
+                          <label class="form-label" [for]="'tbl-rank-' + duty.id">Rank</label>
+                          <input [id]="'tbl-rank-' + duty.id" class="form-input form-input--sm"
+                            type="text" title="Rank" placeholder="e.g. Colonel" [value]="editDutyRank()"
+                            (input)="editDutyRank.set($any($event.target).value)" />
+                        </div>
+                        <div class="form-field">
+                          <label class="form-label" [for]="'tbl-title-' + duty.id">Title</label>
+                          <input [id]="'tbl-title-' + duty.id" class="form-input form-input--sm"
+                            type="text" title="Duty Title" placeholder="e.g. Commander" [value]="editDutyTitle()"
+                            (input)="editDutyTitle.set($any($event.target).value)" />
+                        </div>
+                        <div class="form-field">
+                          <label class="form-label" [for]="'tbl-start-' + duty.id">Start</label>
+                          <input [id]="'tbl-start-' + duty.id" class="form-input form-input--sm"
+                            type="date" title="Duty Start Date" [value]="editDutyStartDate()"
+                            (input)="editDutyStartDate.set($any($event.target).value)" />
+                        </div>
+                        <div class="form-field">
+                          <label class="form-label" [for]="'tbl-end-' + duty.id">End</label>
+                          <input [id]="'tbl-end-' + duty.id" class="form-input form-input--sm"
+                            type="date" title="Duty End Date" [value]="editDutyEndDate()"
+                            (input)="editDutyEndDate.set($any($event.target).value)" />
+                        </div>
+                      </div>
+                      @if (editDutyError()) { <div class="alert alert--error">{{ editDutyError() }}</div> }
+                      <div class="edit-duty-actions">
+                        <button type="button" class="form-btn form-btn--sm" (click)="submitEditDuty()" [disabled]="editDutyState() === 'loading'">
+                          @if (editDutyState() === 'loading') { <span class="btn-spinner"></span> } @else { Save }
+                        </button>
+                        <button type="button" class="ghost-btn ghost-btn--sm" (click)="cancelEditDuty()">Cancel</button>
+                      </div>
+                    </div>
+                  </div>
+                } @else {
+                  <div class="duties-row" [class.duties-row--active]="isCurrentDuty(duty)" [class.duties-row--retired]="duty.dutyTitle === 'RETIRED'">
+                    <button type="button" class="col-name link-btn" (click)="viewPersonDuties(duty.personName)">{{ duty.personName }}</button>
+                    <span class="col-rank">{{ duty.rank }}</span>
+                    <span class="col-title" [class.col-title--retired]="duty.dutyTitle === 'RETIRED'">{{ duty.dutyTitle }}</span>
+                    <span class="col-date">{{ formatDate(duty.dutyStartDate) }}</span>
+                    <span class="col-date">{{ duty.dutyEndDate ? formatDate(duty.dutyEndDate) : '—' }}</span>
+                    <span class="col-status-cell">
+                      @if (isCurrentDuty(duty)) {
+                        <span class="active-badge active-badge--sm">Active</span>
+                      }
+                    </span>
+                    <span class="col-actions">
+                      @if (editMode()) {
+                        <button type="button" class="link-btn link-btn--sm" (click)="startEditDuty(duty)">Edit</button>
+                        <button type="button" class="link-btn link-btn--sm link-btn--danger" (click)="confirmDeleteDuty(duty.id)">Delete</button>
+                      }
+                    </span>
+                  </div>
+                }
+              }
+            </div>
+          </div>
+          @if (editDutySuccess()) {
+            <div class="alert alert--success fade-in">&#10003; {{ editDutySuccess() }}</div>
+          }
+        }
+      }
+    }
+
+    <!-- ══ TAB: People ══ -->
+    @if (activeTab() === 'people') {
+      <div class="page-head-row">
+        <div>
+          <h1 class="page-heading">Retrieve People</h1>
+          <p class="page-sub">Browse all people or look up a specific person by name.</p>
+        </div>
+        <button type="button" class="icon-btn" (click)="loadPeople()" title="Refresh" [disabled]="peopleState() === 'loading'">
+          &#8635; Refresh
+        </button>
+      </div>
+
+      <!-- Lookup by name -->
+      <div class="sub-section">
+        <h3 class="sub-heading">Retrieve Person by Name</h3>
+        <div class="inline-form">
+          <input class="form-input" type="text" placeholder="Full name&hellip;"
+            [value]="lookupName()"
+            (input)="lookupName.set($any($event.target).value)"
+            (keydown)="onKeyDown($event, onLookup.bind(this))" />
+          <button type="button" class="form-btn" (click)="onLookup()" [disabled]="lookupState() === 'loading' || !lookupName().trim()">
+            @if (lookupState() === 'loading') { <span class="btn-spinner"></span> } @else { Find }
+          </button>
+        </div>
+
+        @if (lookupState() === 'not-found') {
+          <div class="alert alert--warn">No person found named "{{ lookupName() }}".</div>
+        }
+        @if (lookupState() === 'error') {
+          <div class="alert alert--error">{{ lookupError() }}</div>
+        }
+        @if (lookupState() === 'success' && lookupPerson()) {
+          <div class="person-row fade-in">
+            <div class="person-row-avatar">
+              @if (lookupPerson()!.photoUrl) {
+                <img [src]="'/' + lookupPerson()!.photoUrl" alt="Astronaut photo" title="Astronaut photo" [attr.alt]="lookupPerson()!.name" [attr.title]="lookupPerson()!.name" class="avatar-img" />
+              } @else {
+                {{ lookupPerson()!.name.charAt(0) }}
+              }
+            </div>
+            <div class="person-row-info">
+              <span class="person-row-name">{{ lookupPerson()!.name }}</span>
+              @if (lookupPerson()!.currentDutyTitle) {
+                <span class="person-row-meta">{{ lookupPerson()!.currentRank }} &mdash; {{ lookupPerson()!.currentDutyTitle }}</span>
+              } @else {
+                <span class="person-row-meta muted">No astronaut assignment</span>
+              }
+            </div>
+            <button type="button" class="link-btn" (click)="viewPersonDuties(lookupPerson()!.name)">View Duties</button>
+            @if (editMode()) {
+              <button type="button" class="link-btn" (click)="startRename(lookupPerson()!.name)">Rename</button>
+              <button type="button" class="link-btn" (click)="triggerPhotoUpload(lookupPerson()!.name)">Photo</button>
+              <button type="button" class="link-btn link-btn--danger" (click)="confirmDeletePerson(lookupPerson()!.name)">Delete</button>
+            }
+          </div>
+        }
+      </div>
+
+      <!-- Rename inline form -->
+      @if (renamingName()) {
+        <div class="sub-section fade-in">
+          <h3 class="sub-heading">Update Name &mdash; "{{ renamingName() }}"</h3>
+          <div class="inline-form">
+            <input class="form-input" type="text" placeholder="New name&hellip;"
+              [value]="newNameInput()"
+              (input)="newNameInput.set($any($event.target).value)"
+              (keydown)="onKeyDown($event, submitRename.bind(this))" />
+            <button type="button" class="form-btn" (click)="submitRename()" [disabled]="renameState() === 'loading' || !newNameInput().trim()">
+              @if (renameState() === 'loading') { <span class="btn-spinner"></span> } @else { Save }
+            </button>
+            <button type="button" class="ghost-btn" (click)="cancelRename()">Cancel</button>
+          </div>
+          @if (renameError()) { <div class="alert alert--error">{{ renameError() }}</div> }
+          @if (renameSuccess()) { <div class="alert alert--success">{{ renameSuccess() }}</div> }
+        </div>
+      }
+
+      <!-- All people list -->
+      <div class="sub-section">
+        <div class="sub-heading-row">
+          <h3 class="sub-heading">All People</h3>
+          @if (peopleState() === 'success' && people().length > 0) {
+            <span class="count-badge">{{ people().length }}</span>
+          }
+        </div>
+
+        @if (peopleState() === 'success' && people().length > 3) {
+          <div class="filter-bar filter-bar--compact">
+            <div class="search-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+              </svg>
+            </div>
+            <input class="filter-input" type="text" placeholder="Filter people&hellip;"
+              [value]="peopleFilter()"
+              (input)="peopleFilter.set($any($event.target).value)"
+              autocomplete="off" />
+            @if (peopleFilter()) {
+              <button type="button" class="clear-btn" (click)="peopleFilter.set('')" title="Clear">&#x2715;</button>
+            }
+          </div>
+        }
+
+        @if (peopleState() === 'loading') {
+          <div class="loading-row"><div class="loader-dots"><span></span><span></span><span></span></div></div>
+        }
+        @if (peopleState() === 'error') {
+          <div class="alert alert--error">{{ peopleError() }}</div>
+        }
+        @if (peopleState() === 'success') {
+          @if (filteredPeople().length === 0) {
+            <p class="empty-note">{{ peopleFilter() ? 'No people match that filter.' : 'No people in the system yet.' }}</p>
+          } @else {
+            <div class="people-list">
+              @for (p of filteredPeople(); track p.personId) {
+                <div class="person-row">
+                  <div class="person-row-avatar">
+                    @if (p.photoUrl) {
+                      <img [src]="'/' + p.photoUrl" alt="Astronaut photo" title="Astronaut photo" [attr.alt]="p.name" [attr.title]="p.name" class="avatar-img" />
+                    } @else {
+                      {{ p.name.charAt(0) }}
+                    }
+                  </div>
+                  <div class="person-row-info">
+                    <span class="person-row-name">{{ p.name }}</span>
+                    @if (p.currentDutyTitle) {
+                      <span class="person-row-meta">
+                        <span class="inline-badge inline-badge--rank">{{ p.currentRank }}</span>
+                        <span class="inline-badge" [class.inline-badge--retired]="p.currentDutyTitle === 'RETIRED'" [class.inline-badge--duty]="p.currentDutyTitle !== 'RETIRED'">
+                          {{ p.currentDutyTitle }}
+                        </span>
+                      </span>
+                    } @else {
+                      <span class="person-row-meta muted">No assignment</span>
+                    }
+                  </div>
+                  <button type="button" class="link-btn" (click)="viewPersonDuties(p.name)">View Duties</button>
+                  @if (editMode()) {
+                    <button type="button" class="link-btn" (click)="startRename(p.name)">Rename</button>
+                    <button type="button" class="link-btn" (click)="triggerPhotoUpload(p.name)">Photo</button>
+                    <button type="button" class="link-btn link-btn--danger" (click)="confirmDeletePerson(p.name)">Delete</button>
+                  }
+                </div>
+              }
+            </div>
+          }
+        }
+        @if (peopleState() === 'idle') {
+          <p class="empty-note muted">Loading&hellip;</p>
+        }
+      </div>
+    }
+
+    <!-- ══ TAB: Add Person ══ -->
+    @if (activeTab() === 'add-person') {
+      <h1 class="page-heading">Add Person</h1>
+      <p class="page-sub">Register a new person in the system.</p>
+
+      <div class="form-card">
+        <div class="form-field">
+          <label class="form-label" for="add-person-name">Full Name</label>
+          <input id="add-person-name" class="form-input" type="text" placeholder="e.g. Neil Armstrong"
+            [value]="addPersonName()"
+            (input)="addPersonName.set($any($event.target).value)"
+            (keydown)="onKeyDown($event, submitAddPerson.bind(this))" />
+        </div>
+        <button type="button" class="submit-btn" (click)="submitAddPerson()" [disabled]="addPersonState() === 'loading' || !addPersonName().trim()">
+          @if (addPersonState() === 'loading') { <span class="btn-spinner dark"></span> Adding&hellip; } @else { Add Person }
+        </button>
+        @if (addPersonError()) { <div class="alert alert--error">{{ addPersonError() }}</div> }
+        @if (addPersonSuccess()) { <div class="alert alert--success fade-in">&#10003; {{ addPersonSuccess() }}</div> }
+      </div>
+    }
+
+    <!-- ══ TAB: Add Duty ══ -->
+    @if (activeTab() === 'add-duty') {
+      <h1 class="page-heading">Add Astronaut Duty</h1>
+      <p class="page-sub">Assign a new duty to an existing person. The previous duty end date and career dates are managed automatically.</p>
+
+      <div class="form-card">
+        <div class="form-field">
+          <label class="form-label" for="duty-person-name">Person Name</label>
+          <input id="duty-person-name" class="form-input" type="text" placeholder="Must match an existing person"
+            [value]="dutyName()"
+            (input)="dutyName.set($any($event.target).value)" />
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label class="form-label" for="duty-rank">Rank</label>
+            <input id="duty-rank" class="form-input" type="text" placeholder="e.g. Colonel"
+              [value]="dutyRank()"
+              (input)="dutyRank.set($any($event.target).value)" />
+          </div>
+          <div class="form-field">
+            <label class="form-label" for="duty-title">Duty Title</label>
+            <input id="duty-title" class="form-input" type="text" placeholder="e.g. Commander"
+              [value]="dutyTitle()"
+              (input)="dutyTitle.set($any($event.target).value)" />
+          </div>
+        </div>
+        <div class="form-field">
+          <label class="form-label" for="duty-start-date">Duty Start Date</label>
+          <input id="duty-start-date" class="form-input" type="date" title="Duty Start Date"
+            [value]="dutyStartDate()"
+            (input)="dutyStartDate.set($any($event.target).value)" />
+        </div>
+        <div class="form-hint">
+          Set Duty Title to <code>RETIRED</code> to retire the person. Career End Date will be set to one day before this start date.
+        </div>
+        <button type="button" class="submit-btn" (click)="submitAddDuty()"
+          [disabled]="addDutyState() === 'loading' || !dutyName().trim() || !dutyRank().trim() || !dutyTitle().trim() || !dutyStartDate()">
+          @if (addDutyState() === 'loading') { <span class="btn-spinner dark"></span> Saving&hellip; } @else { Add Duty }
+        </button>
+        @if (addDutyError()) { <div class="alert alert--error">{{ addDutyError() }}</div> }
+        @if (addDutySuccess()) { <div class="alert alert--success fade-in">&#10003; {{ addDutySuccess() }}</div> }
+      </div>
+    }
+
+    <!-- ══ TAB: Logs ══ -->
+    @if (activeTab() === 'logs') {
+      <div class="page-head-row">
+        <div>
+          <h1 class="page-heading">Audit Logs</h1>
+          <p class="page-sub">Every API operation is logged here — successes and failures.</p>
+        </div>
+        <button type="button" class="icon-btn" (click)="loadLogs(1)" [disabled]="logsState() === 'loading'">
+          &#8635; Refresh
+        </button>
+      </div>
+
+      <div class="log-search-bar">
+        <input
+          type="text"
+          class="log-search-input"
+          placeholder="Search logs…"
+          [value]="logsSearch()"
+          (input)="onLogsSearch($any($event.target).value)"
+        />
+        @if (logsSearch()) {
+          <button type="button" class="log-search-clear" (click)="onLogsSearch('')">&times;</button>
+        }
+      </div>
+
+      @if (logsState() === 'loading') {
+        <div class="loading-row"><div class="loader-dots"><span></span><span></span><span></span></div></div>
+      }
+      @if (logsState() === 'error') {
+        <div class="alert alert--error">{{ logsError() }}</div>
+      }
+      @if (logsState() === 'success') {
+        @if (logs().length === 0) {
+          <p class="empty-note">No log entries yet.</p>
+        } @else {
+          <div class="log-meta">
+            {{ logsTotalCount() }} total &mdash; showing page {{ logsPage() }} of {{ logsTotalPages }}
+          </div>
+          <div class="log-table">
+            <div class="log-header">
+              <span class="log-col-time log-col-sortable" (click)="toggleLogsSort('date')">
+                Timestamp
+                @if (logsSortBy() === 'date') {
+                  <span class="log-sort-arrow">{{ logsSortDirection() === 'asc' ? '&#9650;' : '&#9660;' }}</span>
+                }
+              </span>
+              <span class="log-col-status log-col-sortable" (click)="toggleLogsSort('status')">
+                Status
+                @if (logsSortBy() === 'status') {
+                  <span class="log-sort-arrow">{{ logsSortDirection() === 'asc' ? '&#9650;' : '&#9660;' }}</span>
+                }
+              </span>
+              <span class="log-col-msg log-col-sortable" (click)="toggleLogsSort('message')">
+                Operation &amp; Parameters
+                @if (logsSortBy() === 'message') {
+                  <span class="log-sort-arrow">{{ logsSortDirection() === 'asc' ? '&#9650;' : '&#9660;' }}</span>
+                }
+              </span>
+            </div>
+            @for (log of logs(); track log.id) {
+              <div class="log-row" [class.log-row--error]="log.isException">
+                <span class="log-col-time">{{ formatDateTime(log.createdDate) }}</span>
+                <span class="log-col-status">
+                  @if (log.isException) {
+                    <span class="log-badge log-badge--error">FAIL</span>
+                  } @else {
+                    <span class="log-badge log-badge--ok">OK</span>
+                  }
+                </span>
+                <span class="log-col-msg">
+                  <span class="log-action">{{ splitLogMessage(log.message).action }}</span>
+                  @if (splitLogMessage(log.message).params) {
+                    <span class="log-params">{{ splitLogMessage(log.message).params }}</span>
+                  }
+                </span>
+              </div>
+            }
+          </div>
+          @if (logsTotalPages > 1) {
+            <div class="pagination">
+              <button type="button" class="page-btn" [disabled]="logsPage() <= 1" (click)="loadLogs(logsPage() - 1)">&#8592; Prev</button>
+              <span class="page-info">{{ logsPage() }} / {{ logsTotalPages }}</span>
+              <button type="button" class="page-btn" [disabled]="logsPage() >= logsTotalPages" (click)="loadLogs(logsPage() + 1)">Next &#8594;</button>
+            </div>
+          }
+        }
+      }
+    }
+
+
+  </main>
+
+  <footer class="footer">ACTS &middot; Stargate &middot; Astronaut Career Tracking System</footer>
+</div>
+
+<!-- Hidden file input for photo uploads (People page) -->
+<input #peoplePhotoInput type="file" accept="image/jpeg,image/png" class="hidden-file-input"
+  aria-label="Upload astronaut photo" title="Upload astronaut photo"
+  (change)="onPhotoSelectedForPerson($event)" />
+
+<!-- Photo upload status toast -->
+@if (photoUploadState() !== 'idle') {
+  <div class="toast" [class.toast--ok]="photoUploadState() === 'success'"
+    [class.toast--err]="photoUploadState() === 'error'">
+    @if (photoUploadState() === 'loading') {
+      <span class="btn-spinner"></span> Uploading photo&hellip;
+    }
+    @if (photoUploadState() === 'success') {
+      &#10003; Photo updated!
+    }
+    @if (photoUploadState() === 'error') {
+      &#10007; {{ photoUploadError() }}
+    }
+  </div>
+}
+
+<!-- Photo Lightbox -->
+@if (lightboxPerson()) {
+  <div class="lightbox-overlay" (click)="closeLightbox()">
+    <div class="lightbox" (click)="$event.stopPropagation()">
+      <button type="button" class="lightbox-close" (click)="closeLightbox()" title="Close">&#x2715;</button>
+      <div class="lightbox-img-wrap">
+        <img [src]="'/' + lightboxPerson()!.photoUrl" alt="Astronaut photo" title="Astronaut photo" [attr.alt]="lightboxPerson()!.name" [attr.title]="lightboxPerson()!.name" class="lightbox-img" />
+      </div>
+      <div class="lightbox-info">
+        <h2 class="lightbox-name">{{ lightboxPerson()!.name }}</h2>
+        <div class="lightbox-meta">
+          @if (lightboxPerson()!.currentRank) {
+            <span class="badge badge--rank">{{ lightboxPerson()!.currentRank }}</span>
+          }
+          @if (lightboxPerson()!.currentDutyTitle) {
+            <span class="badge" [class.badge--retired]="lightboxPerson()!.currentDutyTitle === 'RETIRED'" [class.badge--duty]="lightboxPerson()!.currentDutyTitle !== 'RETIRED'">
+              {{ lightboxPerson()!.currentDutyTitle }}
+            </span>
+          }
+        </div>
+        @if (lightboxPerson()!.careerStartDate) {
+          <p class="lightbox-career">
+            {{ formatDate(lightboxPerson()!.careerStartDate) }}
+            @if (lightboxPerson()!.careerEndDate) {
+              &mdash; {{ formatDate(lightboxPerson()!.careerEndDate) }}
+            } @else {
+              &mdash; Present
+            }
+          </p>
+        }
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Login Dialog -->
+@if (showLoginDialog()) {
+  <div class="lightbox-overlay" (click)="cancelLogin()">
+    <div class="login-dialog" (click)="$event.stopPropagation()">
+      <button type="button" class="lightbox-close" (click)="cancelLogin()" title="Close">&#x2715;</button>
+      <div class="login-header">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="28" height="28">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+        <h2 class="login-title">Authorization Required</h2>
+        <p class="login-sub">Enter credentials to enable edit mode.</p>
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="login-user">Username</label>
+        <input id="login-user" class="form-input" type="text" placeholder="Username" autocomplete="username"
+          [value]="loginUsername()"
+          (input)="loginUsername.set($any($event.target).value)"
+          (keydown)="onKeyDown($event, submitLogin.bind(this))" />
+      </div>
+      <div class="form-field">
+        <label class="form-label" for="login-pass">Password</label>
+        <input id="login-pass" class="form-input" type="password" placeholder="Password" autocomplete="current-password"
+          [value]="loginPassword()"
+          (input)="loginPassword.set($any($event.target).value)"
+          (keydown)="onKeyDown($event, submitLogin.bind(this))" />
+      </div>
+      @if (loginError()) {
+        <div class="alert alert--error">{{ loginError() }}</div>
+      }
+      <div class="login-actions">
+        <button type="button" class="form-btn" (click)="submitLogin()" [disabled]="!loginUsername().trim() || !loginPassword().trim()">Authenticate</button>
+        <button type="button" class="ghost-btn" (click)="cancelLogin()">Cancel</button>
+      </div>
+    </div>
+  </div>
+}

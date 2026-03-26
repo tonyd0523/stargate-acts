@@ -1,0 +1,15 @@
+{
+  "/api": {
+    "target": "http://localhost:5204",
+    "secure": false,
+    "changeOrigin": true,
+    "pathRewrite": {
+      "^/api": ""
+    }
+  },
+  "/photos": {
+    "target": "http://localhost:5204",
+    "secure": false,
+    "changeOrigin": true
+  }
+}
